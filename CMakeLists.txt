@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.19)
-project (slammy)
+project (baller)
 
 find_library(CORE_GRAPHICS CoreGraphics)
 find_library(COCOA COCOA)
@@ -19,6 +19,7 @@ link_directories(/opt/local/lib)
 add_executable(render render.cc)
 target_include_directories(render
                           PRIVATE 
+                          ${OpenCV_INCLUDE_DIRS}
                           ${EIGEN3_INCLUDE_DIR}
                           ${Boost_INCLUDE_DIRS})
 target_link_libraries(render 
@@ -29,12 +30,9 @@ target_link_libraries(render
                       ${COCOA} 
                       ${OPENGL} 
                       ${Boost_LIBRARIES}
-                      ${CERES_LIBRARIES})
-
-add_executable(simple_bundle_adjuster simple_bundle_adjuster.cc)
-target_link_libraries(simple_bundle_adjuster ${CERES_LIBRARIES})
+                      ${CERES_LIBRARIES}
+                      ${OpenCV_LIBRARIES})
 
 add_executable(simple_scene simple_scene.cc)
-target_link_libraries(simple_scene ${OPENCV_LIBRARIES})
 target_include_directories(simple_scene PUBLIC ${OpenCV_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
-target_link_libraries(simple_scene ${OpenCV_LIBRARIES})
+target_link_libraries(simple_scene ${OpenCV_LIBRARIES} ${CERES_LIBRARIES})

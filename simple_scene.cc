@@ -6,12 +6,13 @@
 #include <opencv2/calib3d.hpp>
 #include <sophus/se3.hpp>
 
+#include "optimization.hpp"
+
 typedef std::vector<cv::Point3f> Structure;
 typedef std::vector<Sophus::SE3d> Views;
-// Map from camera->point_id->observation
 typedef std::map<std::size_t, std::map<std::size_t, cv::Point2f>> Observations;
 
-Structure buildSyntheticScene() {
+Structure planar() {
   Structure structure;
   for (float x = -5; x < 5; ++x) {
     for (float y = -5; y < 5; ++y) {
@@ -19,6 +20,24 @@ Structure buildSyntheticScene() {
     }
   }
   return structure;
+}
+
+Structure spherical() {
+  Structure structure;
+  const float range = 2.0;
+  for (float theta = -M_PI; theta < M_PI; theta += M_PI/10.0) {
+    float x = range * cos(theta);
+    float y = range * sin(theta);
+    for (float z = 2; z < 10.0; z += 0.1) {
+      structure.push_back({x,y,z});
+    }
+  }
+  return structure;
+}
+
+Structure buildSyntheticScene() {
+  //return planar();
+  return spherical();
 }
 
 Views buildViews(const Structure& structure) {
@@ -33,24 +52,33 @@ Views buildViews(const Structure& structure) {
 
 std::pair<std::size_t, Observations> generateObservations(const Structure& structure, const Views& views) {
 
-  cv::Mat K = cv::Mat::zeros(3, 3, CV_32F);
-  K.at<float>(0,0) = 100;
-  K.at<float>(1,1) = 100;
-  K.at<float>(0,2) = 100;
-  K.at<float>(1,2) = 100;
-  K.at<float>(2,2) = 1;
-
   std::size_t num_observations{0};
   Observations observations;
   for (std::size_t i = 0; i < views.size(); ++i) {
-    cv::Mat rvec = cv::Mat::zeros(3, 1, CV_32F);
-    cv::Mat tvec = cv::Mat::zeros(3, 1, CV_32F);
-    const auto view = views.at(i);
-    tvec.at<float>(0, 0) = view.translation()[0];
-    tvec.at<float>(1, 0) = view.translation()[1];
-    tvec.at<float>(2, 0) = view.translation()[2];
     std::vector<cv::Point2f> projections;
-    cv::projectPoints(structure, rvec, tvec, K, {}, projections);
+    baller::PositionAndRotationReprojectionEror projector{0, 0, baller::CAMERA_FX};
+
+    double camera[9];
+    baller::to(views.at(i), camera);
+    camera[6] = baller::CAMERA_FX;
+    camera[7] = 0;
+    camera[8] = 0;
+
+    for (auto && s : structure) {
+      double point[3];
+      point[0] = s.x;
+      point[1] = s.y;
+      point[2] = s.z;
+      double projected[2];
+      projector.project(camera, point, projected);
+      //LOG(INFO) << point[0] << " "
+                //<< point[1] << " "
+                //<< point[2];
+      //LOG(INFO) << projected[0] << " "
+                //<< projected[1];
+
+      projections.push_back({static_cast<float>(projected[0]), static_cast<float>(projected[1])});
+    }
 
     for (std::size_t j = 0; j < projections.size(); ++j) {
       // Camera, point, obs
@@ -88,12 +116,12 @@ int main(int argc, char* argv[]) {
     stream << translation[0] << std::endl;
     stream << translation[1] << std::endl;
     stream << translation[2] << std::endl;
-    stream << 100.0 << std::endl;
+    stream << baller::CAMERA_FX  << std::endl;
     stream << 0.0 << std::endl;
     stream << 0.0 << std::endl;
   }
-  // Write structure
 
+  // Write structure
   for (auto && s : structure) {
     stream << s.x << std::endl;
     stream << s.y << std::endl;
