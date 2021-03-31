@@ -192,6 +192,8 @@ std::map<std::string, baller::Mode> kLookup{{"localization", baller::Mode::LOCAL
                                             {"mapping", baller::Mode::MAPPING},
                                             {"slam", baller::Mode::SLAM}};
 
+std::set<std::string> screenshots;
+
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   CHECK(not FLAGS_input.empty()) << "Require full path to input problem.txt";
@@ -329,15 +331,17 @@ int main(int argc, char* argv[]) {
     DrawText("- Z to zoom to (0, 0, 0)", width - 310, 120, 10, DARKGRAY);
     EndDrawing();
 
-    const auto now = std::chrono::high_resolution_clock::now();
-    const auto elapsed = now - start;
-
-    if (std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > 100 and FLAGS_record) {
-      static int shot_counter = 0;
+    if (FLAGS_record) {
+      static int counter{0};
       std::stringstream stream;
-      stream << std::setw(3) << std::setfill('0') << shot_counter++;
-      TakeScreenshot((stream.str() + ".png").c_str());
-      start = now;
+      stream << std::fixed << std::setw(3) << std::setfill('0') << index << "_"
+             << std::fixed << std::setw(3) << std::setfill('0') << count;
+      if (screenshots.find(stream.str()) == screenshots.end()) {
+        std::stringstream filename;
+        filename << std::fixed << std::setw(3) << std::setfill('0') << counter++;
+        TakeScreenshot((filename.str() + ".png").c_str());
+        screenshots.insert(stream.str());
+      }
     }
   }
   CloseWindow();
