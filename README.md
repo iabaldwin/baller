@@ -14,8 +14,7 @@ Simple bundle adjustment visualization and manipulation tool. Requires:
 * [RayLib](https://github.com/raysan5/raylib.git) (811e241f)
 * [Ceres](https://github.com/ceres-solver/ceres-solver.git) (766f2ca)
 * [Eigen](http://eigen.tuxfamily.org/index.php?title=Main_Page) (v.3.0)
-* [OpenCV](https://github.com/opencv/opencv) (v.4.2.0)
-* [Boost](https://www.boost.org/) 
+* [Sophus](http://eigen.tuxfamily.org/index.php?title=Main_Page) (a0fe89a)
 
 Generate a simple bundle-adjustment problem:
 

@@ -11,12 +11,10 @@ find_library(IOKIT IOKit)
 find_library(CORE_FOUNDATION CoreFoundation)
 find_library(OPENGL opengl)
 
-find_package(Boost REQUIRED COMPONENTS filesystem system)
 find_package(Eigen3 REQUIRED)
 find_package(Ceres REQUIRED)
-find_package(OpenCV REQUIRED)
 
-set (CMAKE_CXX_STANDARD 17)
+set (CMAKE_CXX_STANDARD 20)
 include_directories(/opt/local/include)
 link_directories(/opt/local/lib)
 include_directories(${PROJECT_SOURCE_DIR}/colormap/include)
@@ -24,9 +22,7 @@ include_directories(${PROJECT_SOURCE_DIR}/colormap/include)
 add_executable(render render.cc)
 target_include_directories(render
                           PRIVATE
-                          ${OpenCV_INCLUDE_DIRS}
-                          ${EIGEN3_INCLUDE_DIR}
-                          ${Boost_INCLUDE_DIRS})
+                          ${EIGEN3_INCLUDE_DIR})
 target_link_libraries(render
                       raylib
                       ${CORE_GRAPHICS}
@@ -34,10 +30,8 @@ target_link_libraries(render
                       ${IOKIT}
                       ${COCOA}
                       ${OPENGL}
-                      ${Boost_LIBRARIES}
-                      ${CERES_LIBRARIES}
-                      ${OpenCV_LIBRARIES})
+                      ${CERES_LIBRARIES})
 
 add_executable(simple_scene simple_scene.cc)
-target_include_directories(simple_scene PUBLIC ${OpenCV_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
-target_link_libraries(simple_scene ${OpenCV_LIBRARIES} ${CERES_LIBRARIES})
+target_include_directories(simple_scene PUBLIC ${EIGEN3_INCLUDE_DIR})
+target_link_libraries(simple_scene ${CERES_LIBRARIES})

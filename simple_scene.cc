@@ -2,15 +2,13 @@
 #include <fstream>
 #include <map>
 
-#include <opencv2/core.hpp>
-#include <opencv2/calib3d.hpp>
 #include <sophus/se3.hpp>
 
 #include "optimization.hpp"
 
-typedef std::vector<cv::Point3f> Structure;
+typedef std::vector<baller::Point3d> Structure;
 typedef std::vector<Sophus::SE3d> Views;
-typedef std::map<std::size_t, std::map<std::size_t, cv::Point2f>> Observations;
+typedef std::map<std::size_t, std::map<std::size_t, baller::Point2d>> Observations;
 
 Structure quad() {
   Structure structure;
@@ -89,7 +87,7 @@ std::pair<std::size_t, Observations> generateObservations(const Structure& struc
   std::size_t num_observations{0};
   Observations observations;
   for (std::size_t i = 0; i < views.size(); ++i) {
-    std::vector<cv::Point2f> projections;
+    std::vector<baller::Point2d> projections;
     baller::PositionAndRotationProjectionError projector{0, 0, baller::CAMERA_FX};
 
     double camera[9];
@@ -100,12 +98,12 @@ std::pair<std::size_t, Observations> generateObservations(const Structure& struc
 
     for (auto && s : structure) {
       double point[3];
-      point[0] = s.x;
-      point[1] = s.y;
-      point[2] = s.z;
+      point[0] = s[0];
+      point[1] = s[1];
+      point[2] = s[2];
       double projected[2];
       projector.project(camera, point, projected);
-      projections.push_back({static_cast<float>(projected[0]), static_cast<float>(projected[1])});
+      projections.push_back({projected[0], projected[1]});
     }
     for (std::size_t j = 0; j < projections.size(); ++j) {
       observations[i][j] = projections.at(j);
@@ -136,7 +134,7 @@ int main(int argc, char* argv[]) {
   // Write observations
   for (auto && o : observations) {
     for (auto && c : o.second) {
-      stream << o.first << " " << c.first << "   " << c.second.x << " " << c.second.y << std::endl;
+      stream << o.first << " " << c.first << "   " << c.second.at(0) << " " << c.second.at(1) << std::endl;
     }
   }
   // Write views
@@ -153,15 +151,15 @@ int main(int argc, char* argv[]) {
     stream << translation[1] << std::endl;
     stream << translation[2] << std::endl;
     stream << baller::CAMERA_FX  << std::endl;
-    stream << 0.0 << std::endl;
-    stream << 0.0 << std::endl;
+    stream << baller::CAMERA_DISTORATION_P1 << std::endl;
+    stream << baller::CAMERA_DISTORATION_P2 << std::endl;
   }
 
   // Write structure
   for (auto && s : structure) {
-    stream << s.x << std::endl;
-    stream << s.y << std::endl;
-    stream << s.z << std::endl;
+    stream << s.at(0) << std::endl;
+    stream << s.at(1) << std::endl;
+    stream << s.at(2) << std::endl;
   }
 
   stream.close();

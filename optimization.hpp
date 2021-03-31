@@ -90,10 +90,13 @@ struct PriorError {
 
 struct PositionAndRotationProjectionErrorLocalization {
   PositionAndRotationProjectionErrorLocalization(double observed_x,
-                                                  double observed_y,
-                                                  double focal,
-                                                  const std::array<double, 3>& point)
-    : observed_x{observed_x}, observed_y{observed_y}, focal{focal}, point{point} {}
+                                                 double observed_y,
+                                                 double focal,
+                                                 const std::array<double, 3>& point)
+    : observed_x{observed_x},
+      observed_y{observed_y},
+      focal{focal},
+      point{point} {}
 
   template <typename T>
     void project(const T* const camera,
@@ -281,6 +284,8 @@ ceres::Problem buildSLAMProblem(BundleAdjustmentInterface * ba) {
   double * cameras = ba->cameras();
   double * points = ba->points();
   CHECK_GT(ba->observations_lookup().size(), 0);
+
+  //for (
 
   for (auto [camIdx, observations] : ba->observations_lookup()) {
     double * camera = cameras + (camIdx * baller::CAMERA_SIZE);

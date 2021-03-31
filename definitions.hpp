@@ -1,8 +1,8 @@
 #pragma once
 
+#include <map>
+
 #include <sophus/se3.hpp>
-#include <opencv2/core.hpp>
-#include <opencv2/core/eigen.hpp>
 
 namespace baller {
   constexpr std::size_t POINT_SIZE = 3;
@@ -13,6 +13,11 @@ namespace baller {
   constexpr std::size_t CAMERA_HEIGHT = 200;
   constexpr std::size_t CAMERA_FX = 150;
   constexpr std::size_t CAMERA_FY = 150;
+  constexpr float CAMERA_DISTORATION_P1 = 0;
+  constexpr float CAMERA_DISTORATION_P2 = 0;
+
+  typedef std::array<double, 3> Point3d;
+  typedef std::array<double, 2> Point2d;
 
   enum class Mode {
     LOCALIZATION = 0,

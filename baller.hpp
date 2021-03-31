@@ -2,12 +2,11 @@
 
 #include <array>
 #include <iostream>
+#include <fstream>
 #include <sstream>
+#include <filesystem>
 
-#include <boost/filesystem.hpp>
-#include <boost/range/iterator_range.hpp>
 #include <Eigen/Core>
-#include <opencv2/calib3d.hpp>
 #include <glog/logging.h>
 
 #include "definitions.hpp"
@@ -22,7 +21,7 @@ namespace baller {
   class Reader : public BundleAdjustmentInterface {
     public:
       Reader(const std::string& path) : BundleAdjustmentInterface() {
-        if (not boost::filesystem::is_regular_file(path)) {
+        if (not std::filesystem::is_regular_file(path)) {
           LOG(FATAL) << "[" << path << "] does not exist!";
         }
         std::ifstream input(path);
@@ -233,33 +232,31 @@ namespace baller {
    * @return
    */
   BundleAdjustmentInterface::Observations project(BundleAdjustmentInterface * const interface) {
-    std::vector<cv::Point3f> structure;
+    std::vector<baller::Point3d> structure;
     double * points = interface->points();
     for (int i = 0; i < interface->num_points() * POINT_SIZE; i+=3) {
       const double x = points[i + 0];
       const double y = points[i + 1];
       const double z = points[i + 2];
-      structure.push_back(cv::Point3f{static_cast<float>(x),
-          static_cast<float>(y),
-          static_cast<float>(z)});
+      structure.push_back({x, y, z});
     }
 
     BundleAdjustmentInterface::Observations observations;
     const double * cameras = interface->cameras();
     for (int i = 0; i < interface->num_cameras() ; ++i) {
-      std::vector<cv::Point2f> projections;
+      std::vector<baller::Point2d> projections;
       PositionAndRotationProjectionError projector{0, 0, CAMERA_FX};
       for (auto && s : structure) {
         double point[3];
-        point[0] = s.x;
-        point[1] = s.y;
-        point[2] = s.z;
+        point[0] = s.at(0);
+        point[1] = s.at(1);
+        point[2] = s.at(2);
         double projected[2];
         projector.project(cameras + (i * baller::CAMERA_SIZE), point, projected);
-        projections.push_back({static_cast<float>(projected[0]), static_cast<float>(projected[1])});
+        projections.push_back({projected[0], projected[1]});
       }
       for (int j = 0; j < projections.size(); ++j) {
-        observations[i][j] = {projections.at(j).x,  projections.at(j).y};
+        observations[i][j] = {projections.at(j).at(0),  projections.at(j).at(1)};
       }
     }
     return observations;
