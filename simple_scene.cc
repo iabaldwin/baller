@@ -131,13 +131,14 @@ int main(int argc, char* argv[]) {
   }
   stream << views.size() << " " << structure.size() << " " << num_observations << std::endl;
 
-  // Write observations
+  // Write the output problem in the same format as BAL
+  // 1. Observations
   for (auto && o : observations) {
     for (auto && c : o.second) {
       stream << o.first << " " << c.first << "   " << c.second.at(0) << " " << c.second.at(1) << std::endl;
     }
   }
-  // Write views
+  // 2. Views
   for (auto && view : views) {
     const auto rotation = view.unit_quaternion();
     Eigen::AngleAxisd aa{rotation};
@@ -155,7 +156,7 @@ int main(int argc, char* argv[]) {
     stream << baller::CAMERA_DISTORATION_P2 << std::endl;
   }
 
-  // Write structure
+  // 3. Structure
   for (auto && s : structure) {
     stream << s.at(0) << std::endl;
     stream << s.at(1) << std::endl;

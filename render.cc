@@ -2,6 +2,8 @@
 
 #include <raylib.h>
 #include <rlgl.h>
+#define RAYGUI_IMPLEMENTATION
+#include "raygui.h"
 #include <gflags/gflags.h>
 
 #include "baller.hpp"
@@ -10,6 +12,8 @@
 namespace {
 
   typedef std::map<const Eigen::MatrixXd * const, Texture2D> TextureMap;
+
+  const Sophus::SE3d renderToWorld = Sophus::SE3d::rotZ(M_PI);
 
   template <int SIZE=256>
   struct ColorMap {
@@ -48,19 +52,17 @@ namespace {
     std::array<std::array<uint8_t, 3>, SIZE> data;
   };
 
-  const Sophus::SE3d renderToWorld = Sophus::SE3d::rotZ(M_PI);
-
-  void DrawStructurePoint(const std::array<double, 3> & point, const Color color, float size = 0.15) {
+  void DrawLandmark(const std::array<double, 3> & point, const Color color, float size = 0.15) {
     Eigen::Vector3d pt{point[0], point[1], point[2]};
     const Eigen::Vector3f worldPoint = (renderToWorld.matrix() * pt.homogeneous()).hnormalized().cast<float>();
     DrawCircle3D({worldPoint[0], worldPoint[1], worldPoint[2]}, size, {0, 0, 1}, 0.0, color);
   }
 
-  void DrawStructurePoint(const double * pointer, const int index, const Color color, float size = 0.15) {
+  void DrawLandmark(const double * pointer, const int index, const Color color, float size = 0.15) {
     const std::array<double, 3> point{pointer[3*index + 0],
                                       pointer[3*index + 1],
                                       pointer[3*index + 2]};
-    DrawStructurePoint(point, color, size);
+    DrawLandmark(point, color, size);
   }
 
   template <typename NumericType>
@@ -139,7 +141,7 @@ namespace {
 
     const int width = screen.at(0);
     const int height = screen.at(1);
-    const int desired_width = std::floor(width / 5.);
+    const int desired_width = std::floor(width / 3.);
     const int available_height = height - 20;
 
     if (jacobians.cols() < desired_width) {
@@ -157,6 +159,42 @@ namespace {
     DrawTexture(texture, x_offset, y_offset, WHITE);
     DrawRectangleLines(x_offset - 2, y_offset - 2, texture.width + 4, texture.height + 4, GRAY);
   }
+
+  struct Highlight {
+    Highlight(double position[3]) : position{position} {
+    }
+
+    void draw() const {
+      Eigen::Vector3d cameraPoint{position[0], position[1], position[2]};
+      const Eigen::Vector3f worldPoint = (renderToWorld.matrix() * cameraPoint.homogeneous()).hnormalized().cast<float>();
+      Vector3 render{worldPoint[0], worldPoint[1], worldPoint[2]};
+      DrawCubeWires(render, 0.5f, 0.5f, 0.5f, GRAY);
+    }
+
+    const double * const position;
+  };
+
+  struct Highlighter {
+    Highlighter(double camera[6], double landmark[3], ceres::Problem& problem) : camera{camera}, landmark{landmark}, problem{problem} {
+      //blocks.push_back({camera, camera});
+      //blocks.push_back({camera, landmark});
+      blocks.push_back({landmark, landmark});
+    }
+
+    void draw() {
+      ceres::Covariance::Options options;
+      ceres::Covariance covariance(options);
+      CHECK(covariance.Compute(blocks, &problem));
+      //double covariance_xx[3 * 3];
+      Eigen::Matrix3d block;
+      covariance.GetCovarianceBlock(landmark, landmark, block.data());
+    }
+
+    const double * const camera;
+    const double * const landmark;
+    ceres::Problem& problem;
+    std::vector<std::pair<const double*, const double*> > blocks;
+  };
 
   class ParameterHistoryCallback : public ceres::IterationCallback {
     public:
@@ -191,7 +229,6 @@ DEFINE_bool(record, false, "Record screenshots");
 std::map<std::string, baller::Mode> kLookup{{"localization", baller::Mode::LOCALIZATION},
                                             {"mapping", baller::Mode::MAPPING},
                                             {"slam", baller::Mode::SLAM}};
-
 std::set<std::string> screenshots;
 
 int main(int argc, char* argv[]) {
@@ -207,18 +244,25 @@ int main(int argc, char* argv[]) {
   baller::solve(problem, &callback);
 
   std::deque<Eigen::MatrixXd> jacobians;
+  std::deque<double> costs;
   auto && history = callback.history();
   CHECK_GT(history.size(), 0);
 
+  // Cache the jacobian history
   for (auto [cameras, points] : history) {
     observed->set_cameras(cameras);
     observed->set_points(points);
     double cost{0.0};
     ceres::CRSMatrix sparse;
     Eigen::MatrixXd dense;
-    problem.Evaluate(ceres::Problem::EvaluateOptions(), &cost, nullptr, nullptr, &sparse);
+    problem.Evaluate(ceres::Problem::EvaluateOptions(),
+                     &cost, nullptr, nullptr, &sparse);
     baller::CRSToDenseMatrix(sparse, dense);
+    if (false) {
+      Eigen::MatrixXd JtJ = dense.transpose() * dense;
+    }
     jacobians.emplace_back(std::move(dense));
+    costs.push_back(cost);
   }
 
   const int width = 3* 800;
@@ -241,17 +285,18 @@ int main(int argc, char* argv[]) {
 
   Ray ray = { 0 };
 
+  std::vector<Highlight> highlights;
+  highlights.push_back({observed->points()});
+
+  Highlighter highlighter{observed->cameras(), observed->points(), problem};
+
+    bool active{false};
   while (!WindowShouldClose()) {
     UpdateCamera(&camera);
 
-    bool collision = false;
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
       ray = GetMouseRay(GetMousePosition(), camera);
     }
-
-    //LOG_EVERY_N(INFO, 100) << camera.position.x << " "
-                           //<< camera.position.y << " "
-                           //<< camera.position.z;
 
     if (IsKeyDown('Z')) {
       camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
@@ -273,7 +318,7 @@ int main(int argc, char* argv[]) {
 
     BeginDrawing();
     ClearBackground(RAYWHITE);
-
+   
     // Begin 3d visualization
     BeginMode3D(camera);
 
@@ -281,18 +326,24 @@ int main(int argc, char* argv[]) {
 
     // Draw observed structure
     for (std::size_t i = 0; i < observed->num_points(); ++i ) {
-      DrawStructurePoint(observed->points(), i, RED, 0.25);
+      DrawLandmark(observed->points(), i, RED, 0.25);
     }
     // Draw actual-structure
     for (std::size_t i = 0; i < truth->num_points(); ++i ) {
-      DrawStructurePoint(truth->points(), i, GREEN, 0.5);
+      DrawLandmark(truth->points(), i, GREEN, 0.5);
     }
     // Draw cameras
     for (std::size_t i = 0; i < observed->num_cameras(); ++i) {
       DrawPose(observed->cameras(), i);
     }
+    // Draw highlighted landmarks/cameras
+    for (auto && highlight : highlights) {
+      highlight.draw();
+    }
 
     EndMode3D();
+
+    highlighter.draw();
 
     // Draw Jacobians
     CHECK_EQ(jacobians.size(), history.size());
@@ -321,6 +372,11 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    // Draw iteration current position
+    GuiSliderBar((Rectangle){ 600, 40, 120, 20}, "Iteration", NULL, static_cast<float>(index), 0, static_cast<float>(history.size()));
+    active = GuiToggle((Rectangle){ 600, 80, 50, 50}, "Active", active);
+   
+    // Draw text descriptions
     DrawRectangle(width - 10 - 320, 10, 320, 133, Fade(SKYBLUE, 0.5f));
     DrawRectangleLines(width - 10 - 320, 10, 320, 133, BLUE);
     DrawText("Free camera default controls:", width - 310 , 20, 10, BLACK);
