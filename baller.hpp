@@ -158,9 +158,9 @@ namespace baller {
       }
 
       void perturb_point(double * point) {
-        point[0] += (rand() % 10 / (10.0));
-        point[1] += (rand() % 10 / (10.0));
-        point[2] += (rand() % 10 / (10.0));
+        point[0] += (rand() % 10 / (1.0));
+        point[1] += (rand() % 10 / (1.0));
+        point[2] += (rand() % 10 / (1.0));
       }
 
       void perturb_camera(double * camera) {

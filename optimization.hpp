@@ -235,7 +235,7 @@ void CRSToDenseMatrix(const ceres::CRSMatrix& input, Eigen::MatrixXd& output) {
   }
 }
 
-ceres::Problem buildLocalizationProblem(BundleAdjustmentInterface * ba, int num_cameras = std::numeric_limits<int>::max()) {
+std::pair<ceres::Problem, ceres::Solver::Options> buildLocalizationProblem(BundleAdjustmentInterface * ba, int num_cameras = std::numeric_limits<int>::max()) {
   CHECK_NOTNULL(ba);
   ceres::Problem problem;
   double * cameras = ba->cameras();
@@ -254,10 +254,11 @@ ceres::Problem buildLocalizationProblem(BundleAdjustmentInterface * ba, int num_
       problem.AddResidualBlock(f, nullptr, camera);
     }
   }
-  return problem;
+  ceres::Solver::Options options;
+  return std::make_pair(std::move(problem), std::move(options));
 }
 
-ceres::Problem buildMappingProblem(BundleAdjustmentInterface * ba) {
+std::pair<ceres::Problem, ceres::Solver::Options> buildMappingProblem(BundleAdjustmentInterface * ba) {
   CHECK_NOTNULL(ba);
   ceres::Problem problem;
   double * cameras = ba->cameras();
@@ -275,33 +276,36 @@ ceres::Problem buildMappingProblem(BundleAdjustmentInterface * ba) {
       problem.AddResidualBlock(f, nullptr, structure);
     }
   }
-  return problem;
+  ceres::Solver::Options options;
+  return std::make_pair(std::move(problem), std::move(options));
 }
 
-ceres::Problem buildSLAMProblem(BundleAdjustmentInterface * ba) {
+std::pair<ceres::Problem, ceres::Solver::Options> buildSLAMProblem(BundleAdjustmentInterface * ba) {
   CHECK_NOTNULL(ba);
   ceres::Problem problem;
   double * cameras = ba->cameras();
   double * points = ba->points();
   CHECK_GT(ba->observations_lookup().size(), 0);
 
-  //for (
-
+  ceres::Solver::Options options;
+  options.linear_solver_ordering.reset(new ceres::ParameterBlockOrdering);
   for (auto [camIdx, observations] : ba->observations_lookup()) {
     double * camera = cameras + (camIdx * baller::CAMERA_SIZE);
     for (auto [pointIdx, observation] : observations) {
       ceres::CostFunction * f = baller::PositionAndRotationProjectionError::Create(observation.at(0), observation.at(1), baller::CAMERA_FX);
       double * structure = points + (pointIdx * baller::POINT_SIZE);
+      options.linear_solver_ordering->AddElementToGroup(camera, 1);
+      options.linear_solver_ordering->AddElementToGroup(structure, 0);
       problem.AddResidualBlock(f,
           nullptr,
           camera,
           structure);
     }
   }
-  return problem;
+  return std::make_pair(std::move(problem), std::move(options));
 }
 
-ceres::Problem build(BundleAdjustmentInterface * ba, const Mode & mode) {
+std::pair<ceres::Problem, ceres::Solver::Options> build(BundleAdjustmentInterface * ba, const Mode & mode) {
   switch (mode) {
     case Mode::LOCALIZATION:
       return buildLocalizationProblem(ba, 1);
@@ -314,10 +318,11 @@ ceres::Problem build(BundleAdjustmentInterface * ba, const Mode & mode) {
   }
 }
 
-void solve(ceres::Problem& problem, ceres::IterationCallback * callback = nullptr) {
-  ceres::Solver::Options options;
+void solve(ceres::Problem& problem, ceres::Solver::Options options, ceres::IterationCallback * callback = nullptr) {
   options.linear_solver_type = ceres::DENSE_SCHUR;
+  // Supress clutter
   options.minimizer_progress_to_stdout = false;
+  // Update state on every iteration
   options.update_state_every_iteration = true;
   if (callback != nullptr) {
     options.callbacks.push_back(callback);
