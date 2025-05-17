@@ -9,7 +9,25 @@
 ```
 
 # Baller
-Simple bundle adjustment visualization and manipulation tool. Requires:
+
+Baller is a small interactive bundle adjustment playground.  It can
+generate synthetic scenes, perturb the data and run a Ceres based
+optimisation while visualising every iteration.  Two programs are
+provided:
+
+* `simple_scene` &ndash; generates a BAL format problem containing
+  cameras, 3D points and their observations.
+* `render` &ndash; loads a problem file, adds noise and solves it while
+  displaying the ground truth (green) and the current estimate (red),
+  the Jacobian matrix and the projected observations.
+
+The solver supports three modes:
+
+* **slam** &ndash; estimate cameras and points together.
+* **localization** &ndash; estimate cameras while keeping points fixed.
+* **mapping** &ndash; estimate points while keeping cameras fixed.
+
+## Requirements
 
 * [RayLib](https://github.com/raysan5/raylib.git) (811e241f)
 * [Ceres](https://github.com/ceres-solver/ceres-solver.git) (766f2ca)
