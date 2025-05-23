@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JavaScript 3D Viewer</title>
+    <style>
+        body { margin: 0; }
+        #scene-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+        #2d-observations-container {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            display: flex;
+            flex-wrap: wrap; /* Allow canvases to wrap */
+            gap: 10px; /* Spacing between canvases */
+            max-height: 220px; /* Limit height */
+            overflow-y: auto; /* Allow scrolling if too many cameras */
+            background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent background */
+            padding: 5px;
+            border-radius: 5px;
+        }
+        .observation-canvas {
+            border: 1px solid gray;
+        }
+    </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+            "three/examples/jsm/controls/OrbitControls.js": "https://unpkg.com/three@0.128.0/examples/jsm/controls/OrbitControls.js"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="scene-container"></div>
+    <div id="2d-observations-container"></div> <!-- Added this line -->
+    <script type="module" src="main.js"></script>
+</body>
+</html>
